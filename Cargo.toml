@@ -1,0 +1,17 @@
+[package]
+name = "toy_robot_arm"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+
+[lib]
+name = "toy_robot_arm"
+path = "src/lib.rs"
+
+[[bin]]
+name = "toy-robot-arm"
+path = "src/main.rs"
+
+[profile.release]
+lto = true
+codegen-units = 1
