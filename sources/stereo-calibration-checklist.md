@@ -1,5 +1,9 @@
 # Stereo Calibration Checklist
 
+Do this only after the one-camera overhead workflow is working. Stereo adds
+mounting, synchronization, rectification, and depth-debugging overhead; it is
+not required for the first tabletop pick-and-place demo.
+
 1. Mount both webcams rigidly so their relative position cannot shift.
 2. Measure the camera baseline between optical centers as closely as practical.
 3. Capture checkerboard images from both cameras at the same time.

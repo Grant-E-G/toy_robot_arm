@@ -1,7 +1,7 @@
 # Toy Robot Arm Control
 
 Rust control scaffold for a LewanSoul/Hiwonder-style 6DOF toy robot arm with
-five servos, a mechanical claw, and a planned stereo webcam feedback loop.
+five PWM servos, a mechanical claw, and webcam-guided feedback.
 
 The current code is intentionally conservative: it separates pure arm/vision
 math from hardware transport so the controller can be tested before connecting
@@ -11,7 +11,7 @@ servos.
 
 - `src/arm.rs`: servo IDs, pulse limits, poses, validation, and clamping.
 - `src/control.rs`: simple proportional visual-servo controller.
-- `src/vision.rs`: stereo pinhole geometry for disparity-to-3D conversion.
+- `src/vision.rs`: pinhole/stereo geometry helpers for camera feedback.
 - `src/transport.rs`: controller-frame encoding and mock transport.
 - `sources/`: hardware notes, protocol assumptions, and calibration checklist.
 
@@ -33,10 +33,10 @@ inspect bytes before adding a real serial transport.
 
 1. Record arm dimensions, servo IDs, neutral pulses, and safe pulse limits in
    `sources/field-measurements.md`.
-2. Calibrate each webcam independently for focal length and distortion.
-3. Measure the camera baseline and run stereo calibration.
-4. Validate serial protocol on an unpowered controller or with servos detached.
-5. Add a real transport backend after protocol and serial settings are verified.
+2. Start with one overhead camera and fiducial markers for X/Y visual servoing.
+3. Validate serial protocol on an unpowered controller or with servos detached.
+4. Add a real transport backend after protocol and serial settings are verified.
+5. Add side-camera or stereo calibration only after overhead tracking works.
 
 The first controller is visual servoing, not full inverse kinematics. It moves
 joint pulses from observed 3D target error with clamp and rate limits. Full IK

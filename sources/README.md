@@ -14,4 +14,7 @@ Files:
 - `protocol-lobot-servo-controller.md`: provisional serial frame format used by
   the Rust encoder.
 - `field-measurements.md`: fill-in sheet for actual arm/camera measurements.
-- `stereo-calibration-checklist.md`: camera calibration workflow.
+- `stereo-calibration-checklist.md`: optional later stereo calibration workflow.
+
+Keep raw analysis dumps out of this folder once useful facts have been folded
+into the files above.

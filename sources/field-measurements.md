@@ -7,7 +7,8 @@ Fill this file in from the actual hardware.
 | Item | Value | Notes |
 | --- | --- | --- |
 | Controller board marking | TBD | |
-| Servo type/model | TBD | |
+| Large servo model | Hiwonder LDX-218 | Visible in photos; confirm on hardware |
+| Small servo model | TBD | Photo suggests Hiwonder micro PWM, possibly LFD-01M-class |
 | Serial device path | TBD | Linux example: `/dev/ttyUSB0` |
 | Baud rate | TBD | |
 | Power supply voltage/current | TBD | |
@@ -20,11 +21,19 @@ Fill this file in from the actual hardware.
 
 | ID | Joint | Min pulse | Neutral pulse | Max pulse | Positive direction | Notes |
 | --- | --- | ---: | ---: | ---: | --- | --- |
-| 1 | base yaw | TBD | 1500 | TBD | TBD | |
-| 2 | shoulder | TBD | 1500 | TBD | TBD | |
-| 3 | elbow | TBD | 1500 | TBD | TBD | |
-| 4 | wrist | TBD | 1500 | TBD | TBD | |
-| 5 | claw | TBD | 1500 | TBD | TBD | |
+| 1 | TBD | TBD | TBD | TBD | TBD | Map by `10..=20 us` jog test |
+| 2 | TBD | TBD | TBD | TBD | TBD | Map by `10..=20 us` jog test |
+| 3 | TBD | TBD | TBD | TBD | TBD | Map by `10..=20 us` jog test |
+| 4 | TBD | TBD | TBD | TBD | TBD | Map by `10..=20 us` jog test |
+| 5 | TBD | TBD | TBD | TBD | TBD | Map by `10..=20 us` jog test |
+
+## Gripper
+
+| Item | Value | Notes |
+| --- | --- | --- |
+| Open pulse | TBD | Calibrate manually |
+| Closed empty pulse | TBD | Calibrate manually |
+| Closed on test object pulse | TBD | Calibrate manually; avoid stall |
 
 ## Cameras
 
@@ -37,3 +46,12 @@ Fill this file in from the actual hardware.
 | Principal point x/y | TBD | TBD | pixels after calibration |
 | Distortion coefficients | TBD | TBD | |
 | Baseline | TBD | TBD | fixed measured distance, meters |
+
+## Fiducials
+
+| Marker ID | Purpose | Notes |
+| ---: | --- | --- |
+| 10 | Gripper | Mount on a visible wrist/gripper flag |
+| 20 | Object | |
+| 30 | Drop zone | |
+| 0-3 | Workspace corners | Optional overhead-camera calibration |
