@@ -1,0 +1,346 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\title{Toy Robot Arm Webcam Feedback Control Theory}
+\author{toy\_robot\_arm project}
+\date{July 3, 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Purpose}
+
+This note spells out the intended control loop for webcam-guided object
+localization and robot arm positioning. The current code already contains the
+core interfaces for arm poses, camera-derived 3D points, a proportional visual
+servo step, and conservative servo-frame encoding. The missing pieces are the
+runtime perception pipeline, calibrated coordinate transforms, and eventually a
+live serial transport.
+
+The key architectural rule is that perception can be simple fiducials, classical
+computer vision, or machine learning, but the controller should see the same
+kind of measurement:
+
+\[
+    z_t = (\hat{x}_t, \hat{y}_t, \hat{z}_t, c_t, \sigma_t)
+\]
+
+where $\hat{x}_t,\hat{y}_t,\hat{z}_t$ are the estimated target or tool position
+in robot/workspace coordinates, $c_t$ is detection confidence, and $\sigma_t$
+summarizes uncertainty. That keeps ML replaceable and testable instead of
+letting a model directly command servo pulses.
+
+\section{Control Loop Overview}
+
+One iteration of the loop should be:
+
+\begin{enumerate}[leftmargin=*]
+    \item Capture synchronized webcam frame(s).
+    \item Detect and localize the gripper/tool, target object, and optional drop
+          zone markers.
+    \item Convert image measurements into workspace coordinates.
+    \item Estimate or smooth the current positions and reject low-confidence
+          measurements.
+    \item Compute the position error between the goal and observed tool pose.
+    \item Convert that Cartesian error into bounded servo pulse deltas.
+    \item Clamp the resulting pose to calibrated joint limits.
+    \item Encode and send a slow servo move frame.
+    \item Repeat after motion and camera latency settle.
+\end{enumerate}
+
+In block form:
+
+\[
+\begin{array}{c}
+\text{webcam frames}
+\\ \downarrow
+\\
+\text{detector/localizer}
+\\ \downarrow
+\\
+\text{pixel or keypoint observations}
+\\ \downarrow
+\\
+\text{camera calibration and workspace transform}
+\\ \downarrow
+\\
+\text{filtered tool/object/drop-zone measurements}
+\\ \downarrow
+\\
+\text{visual servo controller}
+\\ \downarrow
+\\
+\text{bounded servo pulse commands}
+\\ \downarrow
+\\
+\text{servo controller and physical arm}
+\end{array}
+\]
+
+\section{Coordinate Frames}
+
+The loop needs explicit frames:
+
+\begin{description}
+    \item[Image frame $I$] Pixel coordinates $(u,v)$ from a webcam.
+    \item[Camera frame $C$] Metric coordinates relative to the camera optical
+          center.
+    \item[Workspace frame $W$] Table or robot-base coordinates in meters.
+    \item[Servo space $S$] PWM pulse commands for channel IDs.
+\end{description}
+
+The current Rust type \texttt{Point3} represents a metric point:
+
+\[
+    p = (x_m, y_m, z_m)
+\]
+
+For a rectified stereo pair, the existing \texttt{StereoRig} implements:
+
+\[
+    z = \frac{fB}{d}, \qquad
+    x = \frac{(u_L - c_x)z}{f}, \qquad
+    y = \frac{(v_L - c_y)z}{f}
+\]
+
+where $f$ is focal length in pixels, $B$ is baseline in meters, and
+$d = u_L - u_R$ is horizontal disparity.
+
+For the first tabletop demo, an overhead monocular camera is simpler. If object
+motion is mostly on a known table plane, a calibrated homography $H$ maps image
+pixels into workspace coordinates:
+
+\[
+    \lambda
+    \begin{bmatrix}
+    x_W \\ y_W \\ 1
+    \end{bmatrix}
+    =
+    H
+    \begin{bmatrix}
+    u \\ v \\ 1
+    \end{bmatrix}
+\]
+
+Height $z_W$ can then be fixed to the table, inferred from a side camera, or
+estimated later by stereo.
+
+\section{Perception Measurements}
+
+The perception layer should produce typed observations rather than direct arm
+commands:
+
+\[
+    y_t = \{\text{label}, p_W, q, \Sigma, t\}
+\]
+
+where \textit{label} is tool/object/drop-zone, $p_W$ is a workspace position,
+$q$ is confidence, $\Sigma$ is an optional covariance or uncertainty estimate,
+and $t$ is frame time.
+
+\subsection{Fiducial First Path}
+
+The safest first path is fiducials:
+
+\begin{itemize}[leftmargin=*]
+    \item A marker on a rigid flag near the gripper provides tool position.
+    \item A marker on the object provides target position.
+    \item Workspace corner markers calibrate the table homography.
+    \item A drop-zone marker gives a fixed placement goal.
+\end{itemize}
+
+Fiducials give repeatable labels and geometry while the arm is still being
+calibrated. They also provide ground truth data for training or validating a
+later ML detector.
+
+\subsection{ML Detection and Localization Path}
+
+ML becomes useful when objects are not fiducial-tagged, when lighting changes,
+or when the system needs class-specific grasp points. The model should still
+fit behind the same measurement interface. Suitable outputs are:
+
+\begin{itemize}[leftmargin=*]
+    \item Bounding boxes for object detection.
+    \item Segmentation masks for object extent and centroid.
+    \item Keypoints for gripper tip, object handle, or graspable features.
+    \item Dense depth or monocular pose estimates, if calibrated well enough.
+\end{itemize}
+
+A practical ML path is:
+
+\begin{enumerate}[leftmargin=*]
+    \item Start with fiducial detections and logged images.
+    \item Label object masks, centroids, and grasp keypoints from those logs.
+    \item Train or fine tune a small detector/segmenter.
+    \item Compare ML measurements against fiducial/calibration measurements.
+    \item Gate control on confidence and uncertainty before allowing motion.
+\end{enumerate}
+
+The controller should ignore or slow down on weak measurements:
+
+\[
+    \text{accept}(y_t) =
+    q_t \ge q_{\min}
+    \quad \land \quad
+    \|\Sigma_t\| \le \Sigma_{\max}
+    \quad \land \quad
+    t_{\text{now}} - t_t \le \Delta t_{\max}
+\]
+
+\section{State Estimation and Filtering}
+
+Raw detections will jitter. A minimal filter can be an exponential moving
+average:
+
+\[
+    \bar{p}_t = \alpha p_t + (1-\alpha)\bar{p}_{t-1}
+\]
+
+with lower $\alpha$ for noisy measurements and higher $\alpha$ for responsive
+tracking. Later, a constant-velocity Kalman filter can account for camera
+latency and measurement uncertainty:
+
+\[
+    x_t =
+    \begin{bmatrix}
+    p_t \\ v_t
+    \end{bmatrix}
+\]
+
+For this arm, filtering should be conservative. It is better to hold position
+when measurements disagree than to chase noise with servo motion.
+
+\section{Visual Servo Controller}
+
+The current controller is position-based visual servoing. It does not yet solve
+full inverse kinematics. It computes a measured Cartesian error:
+
+\[
+    e_t = p_{\text{goal},t} - p_{\text{tool},t}
+\]
+
+The Rust code currently maps this error into servo pulse deltas using diagonal
+proportional gains:
+
+\[
+\begin{aligned}
+    \Delta s_1 &= k_x e_x \\
+    \Delta s_2 &= k_{z,shoulder} e_z \\
+    \Delta s_3 &= k_{z,elbow} e_z \\
+    \Delta s_4 &= k_y e_y
+\end{aligned}
+\]
+
+These are deliberately crude gains. They are useful before link lengths and
+joint axes are measured because they let us jog the arm in the direction that
+reduces visual error.
+
+The implemented step then:
+
+\begin{enumerate}[leftmargin=*]
+    \item Computes Euclidean error norm $\|e_t\|$.
+    \item Holds the current pose if $\|e_t\|$ is within tolerance.
+    \item Rounds each pulse delta to an integer.
+    \item Rate-limits each delta to \texttt{max\_delta\_pulse}.
+    \item Adds deltas to the current pose.
+    \item Clamps each known joint to calibrated limits.
+\end{enumerate}
+
+In compact form:
+
+\[
+    s_{t+1} =
+    \operatorname{clamp}_{limits}
+    \left(
+        s_t +
+        \operatorname{sat}_{\Delta s_{\max}}(K e_t)
+    \right)
+\]
+
+where $s_t$ is the pulse vector, $K$ is the gain mapping, and
+$\operatorname{sat}$ applies the per-step rate limit.
+
+\section{Goal Selection}
+
+The goal depends on the task phase:
+
+\begin{description}
+    \item[Approach] Put the gripper above the object with a safe height offset.
+    \item[Descend] Move down while keeping x/y error small.
+    \item[Close] Command the gripper from open to closed pulse.
+    \item[Lift] Raise the object before lateral motion.
+    \item[Transfer] Move above the drop zone.
+    \item[Release] Lower, open the gripper, and retreat.
+\end{description}
+
+This should be implemented as a state machine. Each state supplies a
+\texttt{VisualServoGoal}, tolerance, speed limit, and allowed gripper command.
+The feedback controller remains the same.
+
+\section{Safety and Gating}
+
+The arm should only move when all gates pass:
+
+\begin{itemize}[leftmargin=*]
+    \item Servo IDs and joint pulse limits are calibrated.
+    \item Current pose is known or initialized near neutral.
+    \item Camera calibration is loaded and recent.
+    \item Tool and target measurements pass confidence and freshness gates.
+    \item Requested pulse deltas are under the rate limit.
+    \item Resulting pose is inside joint limits.
+    \item The task state permits the command.
+\end{itemize}
+
+If any gate fails, the controller should hold pose or return to a known safe
+state. It should not extrapolate for long periods without camera feedback.
+
+\section{Code Mapping}
+
+\begin{tabular}{>{\ttfamily}p{0.33\linewidth}p{0.57\linewidth}}
+\textnormal{Module} & Role \\
+\hline
+src/vision.rs & Camera geometry types and stereo triangulation helpers. \\
+src/control.rs & Proportional visual servo step from measured error to pulse deltas. \\
+src/arm.rs & Joint IDs, limits, neutral pose, validation, and clamping. \\
+src/transport.rs & Servo controller frame encoding and transport abstraction. \\
+src/main.rs & CLI simulation and frame inspection. \\
+\end{tabular}
+
+\section{Implementation Roadmap}
+
+\begin{enumerate}[leftmargin=*]
+    \item Add a \texttt{Measurement} type carrying label, \texttt{Point3},
+          confidence, uncertainty, and timestamp.
+    \item Add an overhead-camera calibration representation for image-to-table
+          homography.
+    \item Add a perception trait that can be backed by fiducials first and ML
+          later.
+    \item Add filtering and measurement gating before control.
+    \item Add a task state machine for approach, grasp, lift, transfer, and
+          release.
+    \item Add real serial transport only after field measurements confirm board
+          protocol, baud rate, IDs, and safe limits.
+    \item Replace the crude gain mapping with measured Jacobian control or full
+          inverse kinematics once link geometry is known.
+\end{enumerate}
+
+\section{Review Questions}
+
+\begin{itemize}[leftmargin=*]
+    \item Is the first demo explicitly tabletop pick-and-place?
+    \item Should initial feedback be one overhead camera only, or overhead plus
+          side camera?
+    \item Are fiducials acceptable during calibration and data collection?
+    \item Which objects should the first ML detector localize?
+    \item What maximum motion speed and positional tolerance feel safe for the
+          physical kit?
+\end{itemize}
+
+\end{document}

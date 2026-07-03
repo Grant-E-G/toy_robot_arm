@@ -44,7 +44,7 @@ fn run_sim() -> Result<String, String> {
         ControllerGains::default(),
     );
     let frame = encode_lobot_servo_move(next_pose.commands(), MoveDurationMs::new(750))
-        .map_err(|error| format!("{error:?}"))?;
+        .map_err(|error| error.to_string())?;
 
     Ok(format!(
         "error_m: x={:.3}, y={:.3}, z={:.3}\ncommands: {}\nframe: {}",
@@ -77,8 +77,7 @@ fn run_frame(args: &[String]) -> Result<String, String> {
         }
     }
 
-    let frame =
-        encode_lobot_servo_move(&commands, duration).map_err(|error| format!("{error:?}"))?;
+    let frame = encode_lobot_servo_move(&commands, duration).map_err(|error| error.to_string())?;
 
     Ok(bytes_to_hex(&frame))
 }
@@ -89,9 +88,15 @@ fn parse_joint_command(value: &str) -> Result<JointCommand, String> {
         .ok_or_else(|| format!("joint command '{value}' must look like id:pulse"))?;
 
     Ok(JointCommand::new(
-        parse_u16(id, "servo id")? as u8,
+        parse_u8(id, "servo id")?,
         parse_u16(pulse, "pulse")?,
     ))
+}
+
+fn parse_u8(value: &str, name: &'static str) -> Result<u8, String> {
+    value
+        .parse::<u8>()
+        .map_err(|_| format!("{name} '{value}' is not a u8"))
 }
 
 fn parse_u16(value: &str, name: &'static str) -> Result<u16, String> {
@@ -121,4 +126,33 @@ fn help() -> String {
         "  toy-robot-arm frame --ms 750 1:1500 2:1450 3:1600",
     ]
     .join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_servo_id_that_would_truncate() {
+        assert_eq!(
+            parse_joint_command("300:1500"),
+            Err("servo id '300' is not a u8".to_string())
+        );
+    }
+
+    #[test]
+    fn frame_command_reports_invalid_servo_id() {
+        assert_eq!(
+            run_frame(&["300:1500".to_string()]),
+            Err("servo id '300' is not a u8".to_string())
+        );
+    }
+
+    #[test]
+    fn frame_command_reports_plain_transport_errors() {
+        assert_eq!(
+            run_frame(&["1:499".to_string()]),
+            Err("pulse 499 is outside conservative 500..=2500 us range".to_string())
+        );
+    }
 }

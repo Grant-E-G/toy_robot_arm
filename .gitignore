@@ -1,4 +1,5 @@
 /target/
+theory/rendered/
 *.log
 *.tmp
 .DS_Store

@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::arm::{JointCommand, Pulse};
 
 pub trait ServoTransport {
@@ -9,6 +11,16 @@ pub enum TransportError {
     WriteFailed(String),
     InvalidCommand(String),
 }
+
+impl fmt::Display for TransportError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::WriteFailed(message) | Self::InvalidCommand(message) => f.write_str(message),
+        }
+    }
+}
+
+impl std::error::Error for TransportError {}
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct MockTransport {
@@ -96,9 +108,15 @@ fn checked_u8(value: usize, name: &'static str) -> Result<u8, TransportError> {
 }
 
 fn validate_pulse(pulse: Pulse) -> Result<(), TransportError> {
-    (pulse.0 <= 2500)
+    (500..=2500)
+        .contains(&pulse.0)
         .then_some(())
-        .ok_or_else(|| TransportError::InvalidCommand(format!("pulse {} exceeds 2500", pulse.0)))
+        .ok_or_else(|| {
+            TransportError::InvalidCommand(format!(
+                "pulse {} is outside conservative 500..=2500 us range",
+                pulse.0
+            ))
+        })
 }
 
 #[cfg(test)]
@@ -132,5 +150,22 @@ mod tests {
         .unwrap();
 
         assert_eq!(transport.frames().len(), 1);
+    }
+
+    #[test]
+    fn rejects_pulse_below_conservative_pwm_range() {
+        assert_eq!(
+            encode_lobot_servo_move(&[JointCommand::new(1, 499)], MoveDurationMs(500)),
+            Err(TransportError::InvalidCommand(
+                "pulse 499 is outside conservative 500..=2500 us range".to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn displays_transport_error_message_without_debug_wrapper() {
+        let error = TransportError::InvalidCommand("bad frame".to_string());
+
+        assert_eq!(error.to_string(), "bad frame");
     }
 }

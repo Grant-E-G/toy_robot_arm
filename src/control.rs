@@ -48,6 +48,16 @@ pub fn step_visual_servo(
     };
 
     let reached = distance_m(error) <= goal.tolerance_m;
+    if reached {
+        return (
+            spec.clamp_pose(current_pose),
+            ControllerStep {
+                next_pose_reached_goal: true,
+                error,
+            },
+        );
+    }
+
     let deltas = [
         (JointId(1), error.x_m * gains.base_pulse_per_m),
         (JointId(2), error.z_m * gains.shoulder_pulse_per_m),
@@ -114,5 +124,25 @@ mod tests {
         assert_eq!(next.get(JointId(1)), Some(Pulse(1540)));
         assert_eq!(next.get(JointId(2)), Some(Pulse(1540)));
         assert_eq!(next.get(JointId(3)), Some(Pulse(1460)));
+    }
+
+    #[test]
+    fn controller_holds_pose_inside_tolerance() {
+        let spec = RobotArmSpec::lewansoul_learm_provisional();
+        let pose = spec.neutral_pose();
+
+        let (next, step) = step_visual_servo(
+            &spec,
+            &pose,
+            Point3::new(0.0, 0.0, 0.0),
+            VisualServoGoal {
+                target: Point3::new(0.001, 0.001, 0.001),
+                tolerance_m: 0.01,
+            },
+            ControllerGains::default(),
+        );
+
+        assert!(step.next_pose_reached_goal);
+        assert_eq!(next, pose);
     }
 }
