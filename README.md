@@ -29,6 +29,52 @@ camera target and prints the servo commands plus encoded controller frame.
 `frame` only builds the serial frame for direct servo pulse commands. Use it to
 inspect bytes before adding a real serial transport.
 
+## Python Hardware Tools
+
+Create and activate the Conda environment:
+
+```sh
+conda env create -f environment.yml
+conda activate toy-robot-arm
+```
+
+Verify USB serial assumptions before sending anything:
+
+```sh
+python tools/controller_verify.py
+python tools/controller_verify.py --device /dev/ttyUSB0 --baud 9600 --listen-seconds 2
+```
+
+`controller_verify.py` lists likely USB serial devices, prints Linux tty/USB
+details, opens the selected port in raw mode, and optionally listens for
+unsolicited bytes. It never transmits, so it should not move a servo.
+
+Build a one-channel jog packet without sending it:
+
+```sh
+python tools/safe_jog.py --channel 1 --current-pulse 1500 --delta 10
+```
+
+Only after the controller port, baud rate, power setup, and channel risk are
+understood, transmit the jog and return frames:
+
+```sh
+python tools/safe_jog.py \
+  --device /dev/ttyUSB0 \
+  --channel 1 \
+  --current-pulse 1500 \
+  --delta 10 \
+  --send \
+  --i-understand-this-can-move
+```
+
+`safe_jog.py` clamps the initial test window to `1100..=1900 us` and refuses
+deltas larger than `20 us`. The `--current-pulse` value is a best-known command
+position, not measured servo feedback; if it is wrong, the first transmitted
+command can still cause a larger move than intended. For the first live test,
+use detached linkages, servos unloaded, or the servo rail off while validating
+that the controller accepts frames.
+
 ## Hardware Plan
 
 1. Record arm dimensions, servo IDs, neutral pulses, and safe pulse limits in
