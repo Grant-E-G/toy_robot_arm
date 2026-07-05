@@ -1,7 +1,7 @@
 # Toy Robot Arm Control
 
 Rust control scaffold for a LewanSoul/Hiwonder-style 6DOF toy robot arm with
-five PWM servos, a mechanical claw, and webcam-guided feedback.
+six controller channels, a mechanical claw, and webcam-guided feedback.
 
 The current code is intentionally conservative: it separates pure arm/vision
 math from hardware transport so the controller can be tested before connecting
@@ -36,6 +36,12 @@ Create and activate the Conda environment:
 ```sh
 conda env create -f environment.yml
 conda activate toy-robot-arm
+```
+
+The environment includes `pyserial` for serial-port discovery:
+
+```sh
+python -m serial.tools.list_ports
 ```
 
 Verify USB serial assumptions before sending anything:
@@ -75,12 +81,18 @@ command can still cause a larger move than intended. For the first live test,
 use detached linkages, servos unloaded, or the servo rail off while validating
 that the controller accepts frames.
 
+The updated hardware notes identify the intended kit supply as `7.5 V DC, 3 A`.
+Verify DC output, connector fit, and polarity before powering the board. A
+current-capable `6 V` bench supply is still useful for cautious debugging, but
+it may reduce torque or trigger a low-voltage alarm.
+
 ## Hardware Plan
 
 1. Record arm dimensions, servo IDs, neutral pulses, and safe pulse limits in
    `sources/field-measurements.md`.
 2. Start with one overhead camera and fiducial markers for X/Y visual servoing.
-3. Validate serial protocol on an unpowered controller or with servos detached.
+3. Validate serial protocol with servos detached, linkages unloaded, or the
+   servo rail disabled if the controller allows logic-only USB testing.
 4. Add a real transport backend after protocol and serial settings are verified.
 5. Add side-camera or stereo calibration only after overhead tracking works.
 

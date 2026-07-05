@@ -1,5 +1,11 @@
 # Webcam-Guided Cheap Robot Arm Control Project
 
+> Superseded hardware note: `robot_arm_control_project_v2.md` incorporates the
+> newer Amazon listing screenshot and should be treated as the current raw
+> hardware handoff. This older file is preserved as source history and contains
+> earlier assumptions, including possible `LFD-01M` small servos and a likely
+> spare channel 6, that should not override the v2 notes.
+
 ## Purpose
 
 This project uses a low-cost Amazon / Hiwonder-style desktop robot arm as a prototype platform for webcam-guided manipulation. The goal is to make an inexpensive open-loop hobby servo arm perform simple tabletop tasks by wrapping it in an external vision feedback loop.
@@ -635,4 +641,3 @@ That lesson generalizes to robotics, lab automation, microscope alignment, and l
 - [OpenCV ArUco marker detection](https://docs.opencv.org/4.x/d5/dae/tutorial_aruco_detection.html)
 - [OpenCV camera calibration](https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html)
 - [OpenCV perspective transform / homography tutorial](https://docs.opencv.org/4.x/da/d6e/tutorial_py_geometric_transformations.html)
-

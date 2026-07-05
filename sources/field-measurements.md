@@ -8,12 +8,15 @@ actual hardware.
 
 | Item | Value | Notes |
 | --- | --- | --- |
-| Controller board marking | Hiwonder LSC-6-style controller; possible `V1.8` revision | Photo-derived; board appears to have 6 PWM outputs, USB, Bluetooth, and `5V RX TX GND` TTL header |
+| Robot description | Hiwonder/LeArm-style `6DOF (5DOF + Gripper)` metal desktop arm | Amazon listing screenshot; still map actual channels by jog test |
+| Product size/weight | `285 * 120 * 465 mm`, `1.24 kg` | Amazon listing screenshot |
+| Controller board marking | `6 Channels Servo Controller`; Hiwonder LSC-6-style; possible `V1.8` revision | Photo-derived; board appears to have 6 PWM outputs, USB, Bluetooth, and `5V RX TX GND` TTL header |
 | Large servo model | Hiwonder LDX-218 | Visible in photos; confirm on hardware |
-| Small servo model | Hiwonder micro PWM servo, exact model TBD | Photo suggests LFD-01M-class; keep power conservative until label is confirmed |
+| Other listed servo models | Hiwonder LD-1501MG, LFD-06 | Amazon listing screenshot; exact channel-to-servo mapping still TBD |
 | Serial device path | TBD | Discover with `python -m serial.tools.list_ports` or `dmesg`; likely `/dev/ttyUSB*` or `/dev/ttyACM*` |
 | Baud rate | 9600 | Inferred from Hiwonder LSC-series docs; verify with this board |
-| Power supply voltage/current | 6.0 V, 5-8 A initial target | Use original supply if available; do not exceed 6 V until small-servo voltage rating is confirmed |
+| Power supply voltage/current | `7.5 V DC, 3 A` original adapter target | From Amazon listing screenshot; verify DC output, connector fit, and polarity before use |
+| Conservative bench supply option | `6.0 V`, `5 A` or higher | May reduce torque or trigger low-voltage alarm; useful for cautious debugging |
 | Base-to-shoulder link length | TBD | meters |
 | Shoulder-to-elbow link length | TBD | meters |
 | Elbow-to-wrist link length | TBD | meters |
@@ -28,7 +31,7 @@ actual hardware.
 | 3 | TBD | 1100 | 1500 | 1900 | TBD | Initial jog-only range from photo-derived notes; not a calibrated hard-stop range |
 | 4 | TBD | 1100 | 1500 | 1900 | TBD | Initial jog-only range from photo-derived notes; not a calibrated hard-stop range |
 | 5 | TBD | 1100 | 1500 | 1900 | TBD | Initial jog-only range from photo-derived notes; not a calibrated hard-stop range |
-| 6 | Spare/unused | TBD | TBD | TBD | TBD | Controller has 6 outputs; arm is expected to use 5 servos |
+| 6 | TBD | 1100 | 1500 | 1900 | TBD | Do not assume this is spare; map by jog test |
 
 ## Gripper
 

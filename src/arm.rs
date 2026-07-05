@@ -107,38 +107,16 @@ impl RobotArmSpec {
     }
 
     pub fn lewansoul_learm_provisional() -> Self {
-        Self::new(vec![
-            JointLimit {
-                id: JointId(1),
-                min: Pulse(500),
-                neutral: Pulse(1500),
-                max: Pulse(2500),
-            },
-            JointLimit {
-                id: JointId(2),
-                min: Pulse(700),
-                neutral: Pulse(1500),
-                max: Pulse(2300),
-            },
-            JointLimit {
-                id: JointId(3),
-                min: Pulse(700),
-                neutral: Pulse(1500),
-                max: Pulse(2300),
-            },
-            JointLimit {
-                id: JointId(4),
-                min: Pulse(500),
-                neutral: Pulse(1500),
-                max: Pulse(2500),
-            },
-            JointLimit {
-                id: JointId(5),
-                min: Pulse(800),
-                neutral: Pulse(1500),
-                max: Pulse(2200),
-            },
-        ])
+        Self::new(
+            (1..=6)
+                .map(|id| JointLimit {
+                    id: JointId(id),
+                    min: Pulse(1100),
+                    neutral: Pulse(1500),
+                    max: Pulse(1900),
+                })
+                .collect(),
+        )
         .expect("provisional built-in limits are internally valid")
     }
 
@@ -226,7 +204,15 @@ mod tests {
 
         let clamped = spec.clamp_pose(&pose);
 
-        assert_eq!(clamped.get(JointId(1)), Some(Pulse(500)));
-        assert_eq!(clamped.get(JointId(2)), Some(Pulse(2300)));
+        assert_eq!(clamped.get(JointId(1)), Some(Pulse(1100)));
+        assert_eq!(clamped.get(JointId(2)), Some(Pulse(1900)));
+    }
+
+    #[test]
+    fn provisional_spec_includes_six_controller_channels() {
+        let spec = RobotArmSpec::lewansoul_learm_provisional();
+
+        assert_eq!(spec.joints().len(), 6);
+        assert!(spec.limit_for(JointId(6)).is_some());
     }
 }
