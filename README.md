@@ -19,6 +19,7 @@ servos.
 
 ```sh
 cargo test
+cargo kani
 cargo run -- sim
 cargo run -- frame --ms 750 1:1500 2:1450 3:1600
 ```
@@ -28,6 +29,17 @@ camera target and prints the servo commands plus encoded controller frame.
 
 `frame` only builds the serial frame for direct servo pulse commands. Use it to
 inspect bytes before adding a real serial transport.
+
+Kani proof harnesses are compiled only with `cfg(kani)`, so normal `cargo test`
+and `cargo build` are unaffected. To install Kani locally:
+
+```sh
+cargo install --locked kani-verifier
+cargo kani setup
+```
+
+Then run `cargo kani` from the project root. This project keeps Kani enabled in
+`Cargo.toml` test mode so future proof harnesses can live beside Rust tests.
 
 ## Python Hardware Tools
 
